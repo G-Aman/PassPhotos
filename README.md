@@ -1,8 +1,8 @@
 # 📸 Passport Photo Pro
 
 A web-based tool to generate print-ready passport photo sheets from uploaded images. Supports multiple photos, per-photo copy counts, AI background removal, image enhancement, and multi-page PDF export — all on an A4 layout at 300 DPI.
-
-CREDITS 
+---
+### CREDITS 
   Base code - [Abacusus](https://github.com/abacusus)
   Cherry on top - [Deepakguptabca](https://github.com/deepakguptabca)
   
