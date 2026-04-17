@@ -1,22 +1,12 @@
 from flask import Flask, request, render_template, send_file
 from PIL import Image, ImageOps
 from io import BytesIO
-from dotenv import load_dotenv
 import requests
-import cloudinary
-import cloudinary.uploader
-import cloudinary.utils
 import os
 
 app = Flask(__name__)
 
 REMOVE_BG_API_KEY = os.getenv("REMOVE_BG_API_KEY")
-
-cloudinary.config(
-    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
-    api_key=os.getenv("CLOUDINARY_API_KEY"),
-    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
-)
 
 
 @app.route("/")
@@ -25,7 +15,7 @@ def index():
 
 
 def process_single_image(input_image_bytes):
-    """Remove background, enhance, and return a ready-to-paste passport PIL image."""
+    """Remove background and return a ready-to-paste passport PIL image."""
     # Step 1: Background removal
     response = requests.post(
         "https://api.remove.bg/v1.0/removebg",
@@ -49,37 +39,7 @@ def process_single_image(input_image_bytes):
     bg_removed = BytesIO(response.content)
     img = Image.open(bg_removed)
 
-    if img.mode in ("RGBA", "LA"):
-        background = Image.new("RGB", img.size, (255, 255, 255))
-        background.paste(img, mask=img.split()[-1])
-        processed_img = background
-    else:
-        processed_img = img.convert("RGB")
-
-    # Step 2: Upload to Cloudinary
-    buffer = BytesIO()
-    processed_img.save(buffer, format="PNG")
-    buffer.seek(0)
-    upload_result = cloudinary.uploader.upload(buffer, resource_type="image")
-    image_url = upload_result.get("secure_url")
-    public_id = upload_result.get("public_id")
-
-    if not image_url:
-        raise ValueError("cloudinary_upload_failed")
-
-    # Step 3: Enhance via Cloudinary AI
-    enhanced_url = cloudinary.utils.cloudinary_url(
-        public_id,
-        transformation=[
-            {"effect": "gen_restore"},
-            {"quality": "auto"},
-            {"fetch_format": "auto"},
-        ],
-    )[0]
-
-    enhanced_img_data = requests.get(enhanced_url).content
-    img = Image.open(BytesIO(enhanced_img_data))
-
+    # Flatten transparency onto white background
     if img.mode in ("RGBA", "LA"):
         background = Image.new("RGB", img.size, (255, 255, 255))
         background.paste(img, mask=img.split()[-1])
@@ -105,11 +65,8 @@ def process():
     a4_w, a4_h = 2480, 3508
 
     # Collect images and their copy counts
-    # Supports: image_0, image_1, ... and copies_0, copies_1, ...
-    # Also supports legacy single: image + copies
     images_data = []
 
-    # Multi-image mode
     i = 0
     while f"image_{i}" in request.files:
         file = request.files[f"image_{i}"]
@@ -146,7 +103,6 @@ def process():
             else:
                 print(err_str)
                 return {"error": err_str}, 500
-                
 
     paste_w = passport_width + 2 * border
     paste_h = passport_height + 2 * border
@@ -164,12 +120,10 @@ def process():
 
     for passport_img, copies in passport_images:
         for _ in range(copies):
-            # Move to next row if needed
             if x + paste_w > a4_w - margin_x:
                 x = margin_x
                 y += paste_h + spacing
 
-            # Move to next page if needed
             if y + paste_h > a4_h - margin_y:
                 new_page()
 
