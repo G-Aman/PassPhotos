@@ -1,3 +1,2 @@
-﻿cloudinary
-python-dotenv
 pillow
+flask
