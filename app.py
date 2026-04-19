@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, send_file
+from flask import Flask, request, render_template, send_file,jsonify,session
 from PIL import Image, ImageOps
 from io import BytesIO
 import requests
@@ -6,8 +6,9 @@ import os
 
 app = Flask(__name__)
 
-REMOVE_BG_API_KEY = os.getenv("REMOVE_BG_API_KEY")
 
+
+app.secret_key = "your_secret_key" 
 
 @app.route("/")
 def index():
@@ -16,6 +17,7 @@ def index():
 
 def process_single_image(input_image_bytes):
     """Remove background and return a ready-to-paste passport PIL image."""
+    REMOVE_BG_API_KEY = session.get('api_key')
     # Step 1: Background removal
     response = requests.post(
         "https://api.remove.bg/v1.0/removebg",
@@ -155,6 +157,15 @@ def process():
         as_attachment=True,
         download_name="passport-sheet.pdf",
     )
+
+@app.route('/save-api-key', methods=['POST'])
+def save_api_key():
+    data = request.get_json()
+    session['api_key'] = data.get('api_key')
+    print(data)
+    print("Received API Key:",session['api_key'])
+
+    return jsonify({"message": "API key received successfully"})
 
 
 if __name__ == "__main__":
